@@ -172,11 +172,17 @@ function milesBlock(k){const m=S.miles[k]||{s:'',e:''};
   return `<label>Мили (одометр)</label><div class="two"><div><input id="m_s" type="number" inputmode="decimal" placeholder="Начало дня" value="${m.s}"></div><div><input id="m_e" type="number" inputmode="decimal" placeholder="Конец дня" value="${m.e}"></div></div>
   <div id="m_t" style="color:var(--mute);font-size:13px;margin-top:4px">Пройдено: ${fm(miles(k))}</div><button class="btn" data-a="savemiles" data-k="${k}" style="margin-bottom:14px">Сохранить мили</button>`}
 function openBackup(){
-  open(`<h2><span>Резервная копия</span></h2><label>Скопируй текст и сохрани в заметках. Для восстановления вставь его сюда.</label><textarea id="bk" rows="8">${esc(JSON.stringify(S))}</textarea>
-  <button class="btn p" data-a="import">Импортировать</button><button class="btn" data-a="close">Закрыть</button>`);
+  open(`<h2><span>Резервная копия</span><button class="btn" data-a="close" style="margin:0">Закрыть</button></h2>
+  <button class="btn p" data-a="bkshare" style="margin-top:0">Отправить копию файлом</button>
+  <label>Восстановить из файла</label><input id="bk_f" type="file">
+  <label>Или текст копии (скопировать / вставить)</label><textarea id="bk" rows="5">${esc(JSON.stringify(S))}</textarea>
+  <button class="btn" data-a="copy" data-id="bk">Копировать</button><button class="btn" data-a="import">Импортировать</button>`);
 }
-
-document.addEventListener('change',e=>{if(e.target.id==='f_t')$('f_c').style.display=e.target.value==='custom'?'block':'none'});
+function importData(txt){
+  try{const r=JSON.parse(txt);if(!Array.isArray(r.jobs))throw 0;S=r;S.prices=S.prices||{};S.miles=S.miles||{};save();render();close();return true}catch(e){return false}
+}
+document.addEventListener('change',e=>{
+  if(e.target.id==='bk_f'&&e.target.files[0]){const rd=new FileReader();rd.onload=()=>{if(!importData(rd.result)){e.target.value='';e.target.style.borderColor='#dc2626'}};rd.readAsText(e.target.files[0]);return}if(e.target.id==='f_t')$('f_c').style.display=e.target.value==='custom'?'block':'none'});
 document.addEventListener('input',e=>{const t=e.target.dataset.t;if(t){S.prices[t]=parseFloat(e.target.value)||0;save()}});
 document.addEventListener('click',ev=>{
   if(ev.target.id==='ov')return close();
@@ -197,13 +203,16 @@ document.addEventListener('click',ev=>{
   else if(a==='saveset'){document.querySelectorAll('[data-t]').forEach(i=>{S.prices[i.dataset.t]=parseFloat(i.value)||0});save();el.textContent='Сохранено ✓';setTimeout(()=>{if(el.isConnected)el.textContent='Сохранить'},1500)}
   else if(a==='now'){const n=new Date();$(id+'h').value=pad(n.getHours());$(id+'m').value=pad(n.getMinutes())}
   else if(a==='share')doShare(k);
-  else if(a==='copy'){const t=$('sh_t');t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}try{if(!ok&&navigator.clipboard){navigator.clipboard.writeText(t.value);ok=true}}catch(e){}el.textContent=ok?'Скопировано ✓':'Выделено, скопируй вручную'}
+  else if(a==='copy'){const t=$(id||'sh_t');t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}try{if(!ok&&navigator.clipboard){navigator.clipboard.writeText(t.value);ok=true}}catch(e){}el.textContent=ok?'Скопировано ✓':'Выделено, скопируй вручную'}
   else if(a==='savemiles'){const v=x=>{const n=parseFloat($(x).value);return isNaN(n)?'':n},m={s:v('m_s'),e:v('m_e')};
     if(m.s===''&&m.e==='')delete S.miles[k];else S.miles[k]=m;
     save();render();$('m_t').textContent='Пройдено: '+fm(miles(k));el.textContent='Сохранено ✓';setTimeout(()=>{if(el.isConnected)el.textContent='Сохранить мили'},1500)}
   else if(a==='sendtoday'){const k=ymd(new Date());doShare(k).then(ok=>{if(ok){S.sent=k;save();render()}})}
+  else if(a==='bkshare'){const f=new File([JSON.stringify(S)],'smeny-backup-'+ymd(new Date())+'.json',{type:'text/plain'});
+    if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:'Резервная копия'}).catch(()=>{});
+    else el.textContent='Не поддерживается. Скопируй текст ниже'}
   else if(a==='backup')openBackup();
-  else if(a==='import'){try{const r=JSON.parse($('bk').value);if(!Array.isArray(r.jobs))throw 0;S=r;S.prices=S.prices||{};S.miles=S.miles||{};save();render();close()}catch(e){$('bk').style.borderColor='#dc2626'}}
+  else if(a==='import'){if(!importData($('bk').value))$('bk').style.borderColor='#dc2626'}
 });
 render();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
