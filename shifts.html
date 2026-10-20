@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Смены">
+<title>Смены</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eeece4;--card:#fff;--ink:#0b1219;--mute:#3f4b59;--line:#b9b4a6;--acc:#15693a;--accink:#fff}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--card:#151c24;--ink:#f4f7fa;--mute:#b4bfcb;--line:#3a4755;--acc:#4ade80;--accink:#04210f}}
+:root[data-theme="dark"]{--bg:#0b0f14;--card:#151c24;--ink:#f4f7fa;--mute:#b4bfcb;--line:#3a4755;--acc:#4ade80;--accink:#04210f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+main{max-width:640px;margin:0 auto;padding:8px 10px}
+h1{font-size:18px;margin:0}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:10px 4px}
+.bar button{font-size:20px;background:none;border:0;color:var(--ink);padding:6px 14px}
+.sum{color:var(--mute);font-size:13px;text-align:center;margin-bottom:8px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.wd{font-size:11px;color:var(--mute);text-align:center}
+.day{min-height:64px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px;overflow:hidden;cursor:pointer}
+.day b{display:inline-block;font-size:12px;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px}
+.day.today b{background:var(--acc);color:var(--accink)}
+.chip{display:block;font-size:11px;font-weight:600;margin-top:2px;padding:0 3px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.more{font-size:10px;color:var(--mute)}
+.list>div{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:6px}
+.list small{color:var(--mute);display:block}
+.r{text-align:right}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{flex:1;background:none;border:0;padding:12px 4px;font-size:14px;color:var(--mute)}
+.tabs button.on{color:var(--acc);font-weight:600}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:5}
+.ov.show{display:flex}
+.sh{background:var(--bg);width:100%;max-width:640px;max-height:88%;overflow:auto;border-radius:16px 16px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px))}
+.sh h2{font-size:17px;margin:0 0 10px;display:flex;justify-content:space-between}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0 2px}
+input,textarea,select{width:100%;font:inherit;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input[type=color]{height:42px;padding:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:10px 12px;margin:6px 6px 0 0}
+.btn.p{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+.btn.d{color:#dc2626}
+.tot{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.tot div{display:flex;justify-content:space-between;padding:2px 0}
+.tm{display:flex;align-items:center;gap:6px}.tm select{flex:1}.tm span{font-weight:700}.empty{color:var(--mute);text-align:center;padding:24px 8px}
+.sumrow{display:flex;justify-content:space-around;text-align:center;align-items:center}.sumrow b{display:block;font-size:20px}.sumrow small{color:var(--mute);font-size:12px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px}
+.chip2{flex:none;border:2px solid var(--acc);background:var(--card);color:var(--ink);border-radius:14px;padding:9px 13px;font:600 14px/1.3 inherit;text-align:center}
+.big{width:100%;padding:15px;font-size:17px;font-weight:600;margin:10px 0 0}
+.btn{font-weight:600}.day{border-width:1.5px}
+</style></head><body>
+<main id="app"></main>
+<nav class="tabs" id="tabs"></nav>
+<div class="ov" id="ov"><div class="sh" id="sh"></div></div>
+<script>
+const KEY='shifts-v2',TYPES=['replace','new install','removal','custom'];
+const TC={'replace':'#2563eb','new install':'#0f766e','removal':'#dc2626','custom':'#7c3aed'};
+let S={prices:{},jobs:[]};
+try{const r=JSON.parse(localStorage.getItem(KEY));if(r&&Array.isArray(r.jobs))S=r}catch(e){}
+S.prices=S.prices||{};S.miles=S.miles||{};
+S.theme=S.theme||'auto';
+const applyTheme=()=>{const r=document.documentElement;r.removeAttribute('data-theme');if(S.theme==='light'||S.theme==='dark')r.setAttribute('data-theme',S.theme)};applyTheme();
+const fm=v=>(+v.toFixed(1))+' mi';
+const miles=k=>{const m=S.miles[k];return m&&m.s!==''&&m.e!==''&&m.e>=m.s?m.e-m.s:0};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v);
+const h2=h=>h.toFixed(2)+' ч';
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const mins=t=>{const [a,b]=t.split(':').map(Number);return a*60+b};
+const hrs=j=>{if(!j.end)return 0;const s=mins(j.start);let n=mins(j.end);if(n<s)n+=1440;return (n-s)/60};
+const pay=j=>j.end?(j.price||0):0;
+const label=j=>j.type==='custom'?(j.custom||'custom'):j.type;
+const sum=a=>({n:a.length,h:a.reduce((s,j)=>s+hrs(j),0),p:a.reduce((s,j)=>s+pay(j),0)});
+let tab='today',cur=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const monthJobs=()=>S.jobs.filter(j=>j.day.startsWith(cur.getFullYear()+'-'+pad(cur.getMonth()+1)));
+const nav=()=>`<div class="bar"><button data-a="prev">‹</button><h1>${MN[cur.getMonth()]} ${cur.getFullYear()}</h1><button data-a="next">›</button></div>`;
+
+function viewToday(){
+  const k=ymd(new Date()),js=S.jobs.filter(j=>j.day===k).sort((a,b)=>a.start.localeCompare(b.start)),t=sum(js);
+  return `<div class="bar"><h1>Сегодня</h1></div>
+  <div class="tot sumrow"><div><small>${dayName(k)}</small></div><div><b>${t.n}</b><small>работ</small></div><div><b>${money(t.p)}</b><small>заработок</small></div><div><b>${fm(miles(k))}</b><small>мили</small></div></div>
+  <div class="chips">${TYPES.map(x=>`<button class="chip2" data-a="quick" data-id="${x}">${x}<br>${money(S.prices[x]||0)}</button>`).join('')}</div>
+  <label>Работы сегодня</label>`+(js.length?`<div class="list">`+js.map(x=>`<div data-a="day" data-k="${k}" data-id="${x.id}" style="cursor:pointer"><span>${esc(x.job?'#'+x.job:'без номера')} · ${esc(label(x))}<small>${x.start}–${x.end||'...'}</small></span><span class="r"><b>${money(pay(x))}</b><small>${h2(hrs(x))}</small></span></div>`).join('')+`</div>`:'<div class="empty">Пока нет работ. Нажми на тип работы выше.</div>')+
+  `<button class="btn p big" data-a="day" data-k="${k}">+ Добавить работу</button>`;
+}
+function viewCal(){
+  const mj=monthJobs(),t=sum(mj),by={};
+  mj.forEach(j=>(by[j.day]??=[]).push(j));
+  const off=cur.getDay(),n=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate(),today=ymd(new Date());
+  let g=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'].map(d=>`<div class="wd">${d}</div>`).join('')+'<div></div>'.repeat(off);
+  for(let d=1;d<=n;d++){
+    const k=cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(d),js=(by[k]||[]).sort((a,b)=>a.start.localeCompare(b.start));
+    g+=`<div class="day${k===today?' today':''}" data-a="day" data-k="${k}"><b>${d}</b>`+
+      js.slice(0,3).map(j=>`<span class="chip" style="background:${TC[j.type]}66">${esc(j.job||label(j))}</span>`).join('')+
+      (js.length>3?`<span class="more">+${js.length-3}</span>`:'')+'</div>';
+  }
+  return nav()+`<div class="sum">${t.n} работ · ${h2(t.h)} · ${money(t.p)} · ${fm(dayRows(mj).reduce((a,r)=>a+r.mi,0))}</div><div class="grid">${g}</div>`;
+}
+const plural=n=>n+' '+(n%10===1&&n%100!==11?'работа':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'работы':'работ'));
+const dayRows=mj=>{const d={},pre=cur.getFullYear()+'-'+pad(cur.getMonth()+1);mj.forEach(j=>(d[j.day]??=[]).push(j));Object.keys(S.miles).filter(k=>k.startsWith(pre)&&miles(k)>0).forEach(k=>d[k]??=[]);return Object.keys(d).sort().map(k=>({k,s:sum(d[k]),mi:miles(k)}))};
+function viewRep(){
+  const mj=monthJobs(),t=sum(mj),grp={},dr=dayRows(mj);
+  mj.forEach(j=>(grp[j.type]??=[]).push(j));
+  const rows=TYPES.filter(k=>grp[k]).map(k=>({k,s:sum(grp[k])}));
+  return nav()+`<div class="tot"><div><span>Работ</span><b>${t.n}</b></div><div><span>Часы</span><b>${h2(t.h)}</b></div><div><span>Оплата</span><b>${money(t.p)}</b></div><div><span>Мили</span><b>${fm(dr.reduce((a,r)=>a+r.mi,0))}</b></div></div>`+
+    (rows.length?`<div class="list">`+rows.map(r=>`<div><span>${r.k}<small>${r.s.n} × · ${h2(r.s.h)}</small></span><b>${money(r.s.p)}</b></div>`).join('')+'</div>':'<div class="empty">В этом месяце работ нет</div>')+(dr.length?`<label>По дням</label><div class="list">`+dr.map(r=>`<div data-a="day" data-k="${r.k}" style="cursor:pointer"><span>${dayName(r.k)}<small>${plural(r.s.n)}</small></span><span class="r"><b>${money(r.s.p)}</b><small>${fm(r.mi)}</small></span></div>`).join('')+`</div>`:'')+(mj.length?`<button class="btn p" data-a="share" data-k="month" style="margin-top:8px">Поделиться</button>`:'');
+}
+function viewSet(){
+  return `<div class="bar"><h1>Настройки</h1></div><div class="tot"><b>Стоимость за работу, $</b>`+TYPES.map(t=>`<label>${t}</label><input data-t="${t}" type="number" inputmode="decimal" step="0.01" value="${S.prices[t]||''}" placeholder="0">`).join('')+`<button class="btn p" data-a="saveset" style="margin-top:12px">Сохранить</button></div>
+  <div class="tot" style="margin-top:12px"><b>Тема</b><div>${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([v,l])=>`<button class="btn${S.theme===v?' p':''}" data-a="theme" data-id="${v}">${l}</button>`).join('')}</div></div>
+  <button class="btn" data-a="sendtoday">Отчёт за сегодня</button><button class="btn" data-a="backup">Резервная копия / импорт</button>`;
+}
+const banner=()=>{const n=new Date();return n.getHours()>=19&&S.sent!==ymd(n)?`<div class="tot" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Отчёт за сегодня</span><button class="btn p" style="margin:0" data-a="sendtoday">Отправить</button></div>`:''};
+function render(){
+  $('app').innerHTML=banner()+(tab==='today'?viewToday():tab==='cal'?viewCal():tab==='rep'?viewRep():viewSet());
+  $('tabs').innerHTML=[['today','Сегодня'],['cal','Календарь'],['rep','Отчёт'],['set','Настройки']].map(([k,l])=>`<button data-a="tab" data-k="${k}" class="${tab===k?'on':''}">${l}</button>`).join('');
+}
+const open=h=>{$('sh').innerHTML=h;$('ov').classList.add('show')};
+const close=()=>{$('ov').classList.remove('show')};
+const dayName=k=>{const [y,m,d]=k.split('-').map(Number);return d+' '+MN[m-1].toLowerCase()};
+
+// 24h time: two selects (hour 00-23, minute 00-59)
+function tsel(id,v,empty){
+  const [h,m]=v?v.split(':'):['',''];
+  const o=(n,x)=>(empty?'<option value="">--</option>':'')+Array.from({length:n},(_,i)=>`<option${pad(i)===x?' selected':''}>${pad(i)}</option>`).join('');
+  return `<div class="tm"><select id="${id}h">${o(24,h)}</select><span>:</span><select id="${id}m">${o(60,m)}</select><button class="btn" style="margin:0" data-a="now" data-id="${id}">Сейчас</button></div>`;
+}
+const gt=id=>{const h=$(id+'h').value;return h===''?'':h+':'+($(id+'m').value||'00')};
+
+function openDay(k,eid,pre){
+  const js=S.jobs.filter(j=>j.day===k).sort((a,b)=>b.start.localeCompare(a.start));
+  const now=new Date(),t=pad(now.getHours())+':'+pad(now.getMinutes()),j=eid?S.jobs.find(x=>x.id===eid):{job:'',start:t,type:pre||'replace',custom:'',end:t};
+  open(`<h2><span>${dayName(k)}${eid?' · правка':''}</span><button class="btn" data-a="close" style="margin:0">Готово</button></h2>
+    <label style="margin-top:0">Job number</label><input id="f_j" value="${esc(j.job)}" inputmode="numeric">
+    <label>Старт</label>${tsel('f_s',j.start,false)}
+    <label>Тип работы</label><select id="f_t">${TYPES.map(x=>`<option${x===j.type?' selected':''}>${x}</option>`).join('')}</select>
+    <input id="f_c" placeholder="Свой тип работы" value="${esc(j.custom)}" style="margin-top:6px;display:${j.type==='custom'?'block':'none'}">
+    <label>Завершил</label>${tsel('f_e',j.end,true)}
+    <div style="margin-bottom:14px"><button class="btn p" data-a="savejob" data-k="${k}" data-id="${eid||''}">Сохранить</button>`+
+    (eid?`<button class="btn" data-a="day" data-k="${k}">Новая</button><button class="btn d" data-a="deljob" data-k="${k}" data-id="${eid}">Удалить</button>`:'')+`</div>`+milesBlock(k)+
+    (js.length?`<label>Работы за день (нажми на работу, чтобы изменить)</label><div class="list">`+js.map(x=>`<div data-a="day" data-k="${k}" data-id="${x.id}" style="cursor:pointer${x.id===eid?';border-color:var(--acc)':''}"><span>${esc(x.job?'#'+x.job:'без номера')} · ${esc(label(x))}<small>${x.start}–${x.end||'...'}</small></span><span class="r">${h2(hrs(x))}<small>${money(pay(x))}</small></span><button class="btn d" style="margin:0;padding:8px 10px" data-a="askdel" data-k="${k}" data-id="${x.id}">🗑</button></div>`).join('')+`</div><button class="btn" data-a="share" data-k="${k}">Поделиться</button>`:''));
+  $('sh').scrollTop=0;
+}
+const dowName=k=>new Date(k+'T12:00:00').toLocaleDateString('ru-RU',{weekday:'long'});
+const emptyNote=k=>{if(k==='month')return 'Данные не вводились';const d=new Date(k+'T12:00:00').getDay();return d===6?'Суббота (выходной). Данные не вводились':d===0?'Воскресенье (выходной). Данные не вводились':'Данные не вводились'};
+function buildHtml(scope){
+  const month=scope==='month',byTime=(a,b)=>(a.day+a.start).localeCompare(b.day+b.start);
+  const js=(month?monthJobs():S.jobs.filter(j=>j.day===scope)).sort(byTime),t=sum(js);
+  const title=month?MN[cur.getMonth()]+' '+cur.getFullYear():dayName(scope)+', '+dowName(scope);
+  const dr=month?dayRows(js):[],mi=month?dr.reduce((a,r)=>a+r.mi,0):miles(scope);
+  const rows=js.map(j=>`<tr><td>${j.day.slice(8)}.${j.day.slice(5,7)}</td><td>${esc(j.job)}</td><td>${esc(label(j))}</td><td>${j.start}–${j.end||'...'}</td><td class="r">${hrs(j).toFixed(2)}</td><td class="r">${money(pay(j))}</td></tr>`).join('');
+  const by=month?TYPES.map(k=>{const a=js.filter(j=>j.type===k);if(!a.length)return '';const x=sum(a);return `<tr><td>${k}</td><td class="r">${x.n}</td><td class="r">${x.h.toFixed(2)}</td><td class="r">${money(x.p)}</td></tr>`}).join(''):'';
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
+<style>body{font:15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;margin:16px;color:#18222d}h1{font-size:20px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border-bottom:1px solid #ddd;padding:6px 4px;text-align:left}.r{text-align:right}.t{font-weight:700;font-size:16px}</style></head><body>
+<h1>${esc(title)}</h1><div class="t">Работ: ${t.n} · Часы: ${t.h.toFixed(2)} · Оплата: ${money(t.p)}${mi?' · Мили: '+fm(mi):''}</div>
+${by?`<table><tr><th>Тип</th><th class="r">Шт.</th><th class="r">Часы</th><th class="r">Сумма</th></tr>${by}</table>`:''}
+${month?`<table><tr><th>День</th><th class="r">Работ</th><th class="r">Сумма</th><th class="r">Мили</th></tr>${dr.map(r=>`<tr><td>${dayName(r.k)}</td><td class="r">${r.s.n}</td><td class="r">${money(r.s.p)}</td><td class="r">${r.mi?fm(r.mi):''}</td></tr>`).join('')}</table>`:''}
+${js.length?`<table><tr><th>Дата</th><th>Job</th><th>Тип</th><th>Время</th><th class="r">Часы</th><th class="r">Сумма</th></tr>${rows}</table>`:`<p class="t">${emptyNote(scope)}</p>`}</body></html>`}
+async function doShare(scope){
+  const name='smeny-'+(scope==='month'?cur.getFullYear()+'-'+pad(cur.getMonth()+1):scope)+'.html';
+  try{
+    const f=new File([buildHtml(scope)],name,{type:'text/html'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Смены'});return true}
+  }catch(e){if(e&&e.name==='AbortError')return false}
+  shareText(buildText(scope));return true;
+}
+function jobLine(j){return j.day.slice(8)+'.'+j.day.slice(5,7)+' '+(j.job?'#'+j.job+' ':'')+label(j)+' '+j.start+'–'+(j.end||'...')+' '+money(pay(j))}
+function buildText(scope){
+  const byTime=(a,b)=>(a.day+a.start).localeCompare(b.day+b.start);
+  if(scope==='month'){const mj=monthJobs().sort(byTime),t=sum(mj);
+    return MN[cur.getMonth()]+' '+cur.getFullYear()+'\nРабот: '+t.n+', часы: '+t.h.toFixed(2)+', оплата: '+money(t.p)+'\n\n'+mj.map(jobLine).join('\n')}
+  const js=S.jobs.filter(j=>j.day===scope).sort(byTime),t=sum(js);
+  return dayName(scope)+'\nРабот: '+t.n+', оплата: '+money(t.p)+'\n\n'+(js.length?js.map(jobLine).join('\n'):emptyNote(scope))}
+async function shareText(text){
+  if(navigator.share){try{await navigator.share({title:'Смены',text});return}catch(e){if(e&&e.name==='AbortError')return}}
+  const q=encodeURIComponent(text);
+  open(`<h2><span>Поделиться</span><button class="btn" data-a="close" style="margin:0">Закрыть</button></h2><textarea id="sh_t" rows="9">${esc(text)}</textarea>
+  <a class="btn" href="mailto:?subject=${encodeURIComponent('Смены')}&body=${q}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Email</a>
+  <a class="btn" href="https://t.me/share/url?url=%20&text=${q}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Telegram</a>
+  <button class="btn" data-a="copy">Копировать</button>`)}
+function milesBlock(k){const m=S.miles[k]||{s:'',e:''};
+  return `<label>Мили (одометр)</label><div class="two"><div><input id="m_s" type="number" inputmode="decimal" placeholder="Начало дня" value="${m.s}"></div><div><input id="m_e" type="number" inputmode="decimal" placeholder="Конец дня" value="${m.e}"></div></div>
+  <div id="m_t" style="color:var(--mute);font-size:13px;margin-top:4px">Пройдено: ${fm(miles(k))}</div><button class="btn" data-a="savemiles" data-k="${k}" style="margin-bottom:14px">Сохранить мили</button>`}
+function openBackup(){
+  open(`<h2><span>Резервная копия</span><button class="btn" data-a="close" style="margin:0">Закрыть</button></h2>
+  <button class="btn p" data-a="bkshare" style="margin-top:0">Отправить копию файлом</button>
+  <label>Восстановить из файла</label><input id="bk_f" type="file">
+  <label>Или текст копии (скопировать / вставить)</label><textarea id="bk" rows="5">${esc(JSON.stringify(S))}</textarea>
+  <button class="btn" data-a="copy" data-id="bk">Копировать</button><button class="btn" data-a="import">Импортировать</button>`);
+}
+function importData(txt){
+  try{const r=JSON.parse(txt);if(!Array.isArray(r.jobs))throw 0;S=r;S.prices=S.prices||{};S.miles=S.miles||{};S.theme=S.theme||'auto';applyTheme();save();render();close();return true}catch(e){return false}
+}
+document.addEventListener('change',e=>{
+  if(e.target.id==='bk_f'&&e.target.files[0]){const rd=new FileReader();rd.onload=()=>{if(!importData(rd.result)){e.target.value='';e.target.style.borderColor='#dc2626'}};rd.readAsText(e.target.files[0]);return}if(e.target.id==='f_t')$('f_c').style.display=e.target.value==='custom'?'block':'none'});
+document.addEventListener('input',e=>{const t=e.target.dataset.t;if(t){S.prices[t]=parseFloat(e.target.value)||0;save()}});
+document.addEventListener('click',ev=>{
+  if(ev.target.id==='ov')return close();
+  const el=ev.target.closest('[data-a]');if(!el)return;
+  const a=el.dataset.a,k=el.dataset.k,id=el.dataset.id;
+  if(a==='tab'){tab=k;render()}
+  else if(a==='prev'||a==='next'){cur=new Date(cur.getFullYear(),cur.getMonth()+(a==='next'?1:-1),1);render()}
+  else if(a==='day')openDay(k,id);
+  else if(a==='close')close();
+  else if(a==='savejob'){
+    const type=$('f_t').value,d={job:$('f_j').value.trim(),start:gt('f_s')||'08:00',end:gt('f_e'),type,custom:type==='custom'?$('f_c').value.trim():''};
+    if(id){const o=S.jobs.find(x=>x.id===id);if(o.type!==type)d.price=S.prices[type]||0;Object.assign(o,d)}else S.jobs.push({id:uid(),day:k,price:S.prices[type]||0,...d});
+    save();render();
+    if(id){openDay(k,id);const b=document.querySelector('[data-a="savejob"]');if(b){b.textContent='Сохранено ✓';setTimeout(()=>{if(b.isConnected)b.textContent='Сохранить'},1500)}}
+    else openDay(k)}
+  else if(a==='askdel'){el.textContent='Удалить?';el.dataset.a='deljob';setTimeout(()=>{if(el.isConnected&&el.dataset.a==='deljob'){el.textContent='🗑';el.dataset.a='askdel'}},3000)}
+  else if(a==='deljob'){S.jobs=S.jobs.filter(x=>x.id!==id);save();render();openDay(k)}
+  else if(a==='saveset'){document.querySelectorAll('[data-t]').forEach(i=>{S.prices[i.dataset.t]=parseFloat(i.value)||0});save();el.textContent='Сохранено ✓';setTimeout(()=>{if(el.isConnected)el.textContent='Сохранить'},1500)}
+  else if(a==='now'){const n=new Date();$(id+'h').value=pad(n.getHours());$(id+'m').value=pad(n.getMinutes())}
+  else if(a==='share')doShare(k);
+  else if(a==='copy'){const t=$(id||'sh_t');t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}try{if(!ok&&navigator.clipboard){navigator.clipboard.writeText(t.value);ok=true}}catch(e){}el.textContent=ok?'Скопировано ✓':'Выделено, скопируй вручную'}
+  else if(a==='savemiles'){const v=x=>{const n=parseFloat($(x).value);return isNaN(n)?'':n},m={s:v('m_s'),e:v('m_e')};
+    if(m.s===''&&m.e==='')delete S.miles[k];else S.miles[k]=m;
+    save();render();$('m_t').textContent='Пройдено: '+fm(miles(k));el.textContent='Сохранено ✓';setTimeout(()=>{if(el.isConnected)el.textContent='Сохранить мили'},1500)}
+  else if(a==='sendtoday'){const k=ymd(new Date());doShare(k).then(ok=>{if(ok){S.sent=k;save();render()}})}
+  else if(a==='bkshare'){const f=new File([JSON.stringify(S)],'smeny-backup-'+ymd(new Date())+'.json',{type:'text/plain'});
+    if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:'Резервная копия'}).catch(()=>{});
+    else el.textContent='Не поддерживается. Скопируй текст ниже'}
+  else if(a==='quick')openDay(ymd(new Date()),null,id);
+  else if(a==='theme'){S.theme=id;save();applyTheme();render()}
+  else if(a==='backup')openBackup();
+  else if(a==='import'){if(!importData($('bk').value))$('bk').style.borderColor='#dc2626'}
+});
+render();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
+</script></body></html>
