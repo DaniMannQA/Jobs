@@ -54,12 +54,17 @@ input[type=color]{height:42px;padding:2px}
 <nav class="tabs" id="tabs"></nav>
 <div class="ov" id="ov"><div class="sh" id="sh"></div></div>
 <script>
-const KEY='shifts-v2',TYPES=['replace','new install','removal','custom'];
-const TC={'replace':'#2563eb','new install':'#0f766e','removal':'#dc2626','custom':'#7c3aed'};
+const KEY='shifts-v2',TYPES=['UW1','UW2','UW3','UW3.1','UW4','UW5','custom'];
+const NAMES={'UW1':'Turnkey Wireless Installation','UW2':'Wireless Trouble Call','UW3':'Upgrade — New Mount / No Wall Fish','UW3.1':'Upgrade — Existing Mount / No Wall Fish','UW4':'Upgrade — With Wall Fish','UW5':'Remove & Disconnect'};
+const DEF={'UW1':120,'UW2':80,'UW3':90,'UW3.1':65,'UW4':110,'UW5':50};
+const TC={'UW1':'#15803d','UW2':'#dc2626','UW3':'#2563eb','UW3.1':'#0891b2','UW4':'#d97706','UW5':'#6b7280','custom':'#7c3aed'};
+const tlabel=t=>t==='custom'?'custom':t+' · '+NAMES[t];
 let S={prices:{},jobs:[]};
 try{const r=JSON.parse(localStorage.getItem(KEY));if(r&&Array.isArray(r.jobs))S=r}catch(e){}
 S.prices=S.prices||{};S.miles=S.miles||{};
 S.theme=S.theme||'auto';
+TYPES.forEach(t=>{if(S.prices[t]===undefined)S.prices[t]=DEF[t]||0});
+S.jobs.forEach(j=>{if(!TYPES.includes(j.type)){j.custom=j.custom||j.type;j.type='custom'}});
 const applyTheme=()=>{const r=document.documentElement;r.removeAttribute('data-theme');if(S.theme==='light'||S.theme==='dark')r.setAttribute('data-theme',S.theme)};applyTheme();
 const fm=v=>(+v.toFixed(1))+' mi';
 const miles=k=>{const m=S.miles[k];return m&&m.s!==''&&m.e!==''&&m.e>=m.s?m.e-m.s:0};
@@ -74,7 +79,8 @@ const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const mins=t=>{const [a,b]=t.split(':').map(Number);return a*60+b};
 const hrs=j=>{if(!j.end)return 0;const s=mins(j.start);let n=mins(j.end);if(n<s)n+=1440;return (n-s)/60};
 const pay=j=>j.end?(j.price||0):0;
-const label=j=>j.type==='custom'?(j.custom||'custom'):j.type;
+const label=j=>j.type==='custom'?(j.custom||'custom'):tlabel(j.type);
+const short=j=>j.type==='custom'?(j.custom||'custom'):j.type;
 const sum=a=>({n:a.length,h:a.reduce((s,j)=>s+hrs(j),0),p:a.reduce((s,j)=>s+pay(j),0)});
 let tab='today',cur=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -97,7 +103,7 @@ function viewCal(){
   for(let d=1;d<=n;d++){
     const k=cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(d),js=(by[k]||[]).sort((a,b)=>a.start.localeCompare(b.start));
     g+=`<div class="day${k===today?' today':''}" data-a="day" data-k="${k}"><b>${d}</b>`+
-      js.slice(0,3).map(j=>`<span class="chip" style="background:${TC[j.type]}66">${esc(j.job||label(j))}</span>`).join('')+
+      js.slice(0,3).map(j=>`<span class="chip" style="background:${TC[j.type]}66">${esc(j.job||short(j))}</span>`).join('')+
       (js.length>3?`<span class="more">+${js.length-3}</span>`:'')+'</div>';
   }
   return nav()+`<div class="sum">${t.n} работ · ${h2(t.h)} · ${money(t.p)} · ${fm(dayRows(mj).reduce((a,r)=>a+r.mi,0))}</div><div class="grid">${g}</div>`;
@@ -109,10 +115,10 @@ function viewRep(){
   mj.forEach(j=>(grp[j.type]??=[]).push(j));
   const rows=TYPES.filter(k=>grp[k]).map(k=>({k,s:sum(grp[k])}));
   return nav()+`<div class="tot"><div><span>Работ</span><b>${t.n}</b></div><div><span>Часы</span><b>${h2(t.h)}</b></div><div><span>Оплата</span><b>${money(t.p)}</b></div><div><span>Мили</span><b>${fm(dr.reduce((a,r)=>a+r.mi,0))}</b></div></div>`+
-    (rows.length?`<div class="list">`+rows.map(r=>`<div><span>${r.k}<small>${r.s.n} × · ${h2(r.s.h)}</small></span><b>${money(r.s.p)}</b></div>`).join('')+'</div>':'<div class="empty">В этом месяце работ нет</div>')+(dr.length?`<label>По дням</label><div class="list">`+dr.map(r=>`<div data-a="day" data-k="${r.k}" style="cursor:pointer"><span>${dayName(r.k)}<small>${plural(r.s.n)}</small></span><span class="r"><b>${money(r.s.p)}</b><small>${fm(r.mi)}</small></span></div>`).join('')+`</div>`:'')+(mj.length?`<button class="btn p" data-a="share" data-k="month" style="margin-top:8px">Поделиться</button>`:'');
+    (rows.length?`<div class="list">`+rows.map(r=>`<div><span>${tlabel(r.k)}<small>${r.s.n} × · ${h2(r.s.h)}</small></span><b>${money(r.s.p)}</b></div>`).join('')+'</div>':'<div class="empty">В этом месяце работ нет</div>')+(dr.length?`<label>По дням</label><div class="list">`+dr.map(r=>`<div data-a="day" data-k="${r.k}" style="cursor:pointer"><span>${dayName(r.k)}<small>${plural(r.s.n)}</small></span><span class="r"><b>${money(r.s.p)}</b><small>${fm(r.mi)}</small></span></div>`).join('')+`</div>`:'')+(mj.length?`<button class="btn p" data-a="share" data-k="month" style="margin-top:8px">Поделиться</button>`:'');
 }
 function viewSet(){
-  return `<div class="bar"><h1>Настройки</h1></div><div class="tot"><b>Стоимость за работу, $</b>`+TYPES.map(t=>`<label>${t}</label><input data-t="${t}" type="number" inputmode="decimal" step="0.01" value="${S.prices[t]||''}" placeholder="0">`).join('')+`<button class="btn p" data-a="saveset" style="margin-top:12px">Сохранить</button></div>
+  return `<div class="bar"><h1>Настройки</h1></div><div class="tot"><b>Стоимость за работу, $</b>`+TYPES.map(t=>`<label>${tlabel(t)}</label><input data-t="${t}" type="number" inputmode="decimal" step="0.01" value="${S.prices[t]||''}" placeholder="0">`).join('')+`<button class="btn p" data-a="saveset" style="margin-top:12px">Сохранить</button></div>
   <div class="tot" style="margin-top:12px"><b>Тема</b><div>${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([v,l])=>`<button class="btn${S.theme===v?' p':''}" data-a="theme" data-id="${v}">${l}</button>`).join('')}</div></div>
   <button class="btn" data-a="sendtoday">Отчёт за сегодня</button><button class="btn" data-a="backup">Резервная копия / импорт</button>`;
 }
@@ -139,7 +145,7 @@ function openDay(k,eid,pre){
   open(`<h2><span>${dayName(k)}${eid?' · правка':''}</span><button class="btn" data-a="close" style="margin:0">Готово</button></h2>
     <label style="margin-top:0">Job number</label><input id="f_j" value="${esc(j.job)}" inputmode="numeric">
     <label>Старт</label>${tsel('f_s',j.start,false)}
-    <label>Тип работы</label><select id="f_t">${TYPES.map(x=>`<option${x===j.type?' selected':''}>${x}</option>`).join('')}</select>
+    <label>Тип работы</label><select id="f_t">${TYPES.map(x=>`<option value="${x}"${x===j.type?' selected':''}>${tlabel(x)}</option>`).join('')}</select>
     <input id="f_c" placeholder="Свой тип работы" value="${esc(j.custom)}" style="margin-top:6px;display:${j.type==='custom'?'block':'none'}">
     <label>Завершил</label>${tsel('f_e',j.end,true)}
     <div style="margin-bottom:14px"><button class="btn p" data-a="savejob" data-k="${k}" data-id="${eid||''}">Сохранить</button>`+
@@ -155,7 +161,7 @@ function buildHtml(scope){
   const title=month?MN[cur.getMonth()]+' '+cur.getFullYear():dayName(scope)+', '+dowName(scope);
   const dr=month?dayRows(js):[],mi=month?dr.reduce((a,r)=>a+r.mi,0):miles(scope);
   const rows=js.map(j=>`<tr><td>${j.day.slice(8)}.${j.day.slice(5,7)}</td><td>${esc(j.job)}</td><td>${esc(label(j))}</td><td>${j.start}–${j.end||'...'}</td><td class="r">${hrs(j).toFixed(2)}</td><td class="r">${money(pay(j))}</td></tr>`).join('');
-  const by=month?TYPES.map(k=>{const a=js.filter(j=>j.type===k);if(!a.length)return '';const x=sum(a);return `<tr><td>${k}</td><td class="r">${x.n}</td><td class="r">${x.h.toFixed(2)}</td><td class="r">${money(x.p)}</td></tr>`}).join(''):'';
+  const by=month?TYPES.map(k=>{const a=js.filter(j=>j.type===k);if(!a.length)return '';const x=sum(a);return `<tr><td>${tlabel(k)}</td><td class="r">${x.n}</td><td class="r">${x.h.toFixed(2)}</td><td class="r">${money(x.p)}</td></tr>`}).join(''):'';
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <style>body{font:15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;margin:16px;color:#18222d}h1{font-size:20px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border-bottom:1px solid #ddd;padding:6px 4px;text-align:left}.r{text-align:right}.t{font-weight:700;font-size:16px}</style></head><body>
 <h1>${esc(title)}</h1><div class="t">Работ: ${t.n} · Часы: ${t.h.toFixed(2)} · Оплата: ${money(t.p)}${mi?' · Мили: '+fm(mi):''}</div>
