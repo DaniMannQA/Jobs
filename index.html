@@ -18,6 +18,7 @@ h1{font-size:18px;margin:0}
 .bar button{font-size:20px;background:none;border:0;color:var(--ink);padding:6px 14px}
 .sum{color:var(--mute);font-size:13px;text-align:center;margin-bottom:8px}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.wk{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-size:13px;margin-bottom:3px}.wk b{font-weight:700}.day.we{opacity:.6}.wk.cur{border-color:var(--acc)}
 .wd{font-size:11px;color:var(--mute);text-align:center}
 .day{min-height:96px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px;overflow:hidden;cursor:pointer}
 .day b{display:inline-block;font-size:12px;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px}
@@ -87,6 +88,14 @@ const sum=a=>({n:a.filter(j=>!isX(j)).length,c:a.length,h:a.reduce((s,j)=>s+hrs(
 let tab='today',cur=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const monthJobs=()=>S.jobs.filter(j=>j.day.startsWith(cur.getFullYear()+'-'+pad(cur.getMonth()+1)));
+const MS=['янв','февр','мар','апр','мая','июн','июл','авг','сент','окт','нояб','дек'];
+const addD=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+const monOf=d=>addD(d,-((d.getDay()+6)%7));
+const isWE=j=>{const g=new Date(j.day+'T00:00').getDay();return g===0||g===6};
+const wRange=a=>{const b=addD(a,4);return a.getMonth()===b.getMonth()?a.getDate()+'–'+b.getDate()+' '+MS[b.getMonth()]:a.getDate()+' '+MS[a.getMonth()]+' – '+b.getDate()+' '+MS[b.getMonth()]};
+const wSum=a=>{const l=S.jobs.filter(j=>j.day>=ymd(a)&&j.day<=ymd(addD(a,6)));return {l,s:sum(l)}};
+const weeks=()=>{const r=[],end=new Date(cur.getFullYear(),cur.getMonth()+1,0);for(let m=monOf(cur);m<=end;m=addD(m,7))if(addD(m,4)>=new Date(cur.getFullYear(),cur.getMonth(),1)||wSum(m).s.c)r.push(m);return r};
+const wDetail=l=>{const pd=sum(l.filter(j=>j.type==='Per diem')),g=sum(l.filter(j=>j.type==='Gas expense')),we=sum(l.filter(isWE));return plural(sum(l).n)+(pd.c?' · Per diem '+pd.c+' · '+money(pd.p):'')+(g.c?' · Gas '+money(g.p):'')+(we.c?' · выходные '+money(we.p):'')};
 const nav=()=>`<div class="bar"><button data-a="prev">‹</button><h1>${MN[cur.getMonth()]} ${cur.getFullYear()}</h1><button data-a="next">›</button></div>`;
 
 function viewToday(){
@@ -100,14 +109,18 @@ function viewToday(){
 function viewCal(){
   const mj=monthJobs(),t=sum(mj),by={};
   mj.forEach(j=>(by[j.day]??=[]).push(j));
-  const off=cur.getDay(),n=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate(),today=ymd(new Date());
-  let g=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'].map(d=>`<div class="wd">${d}</div>`).join('')+'<div></div>'.repeat(off);
+  const off=(cur.getDay()+6)%7,n=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate(),today=ymd(new Date());
+  let wk=monOf(cur),cells=off;
+  const strip=()=>{const w=wSum(wk),s=w.s,we=sum(w.l.filter(isWE)),b=addD(wk,6),isCur=today>=ymd(wk)&&today<=ymd(b),f=addD(wk,4);const h=(s.c||isCur)?`<div class="wk${isCur?' cur':''}"><span>${wRange(wk)} · ${plural(s.n)}${we.c?' · выходные '+money(we.p):''}${isCur?' · оплата в пт '+f.getDate()+' '+MS[f.getMonth()]:''}</span><b>${money(s.p)}</b></div>`:'';wk=addD(wk,7);return h};
+  let g=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>`<div class="wd">${d}</div>`).join('')+'<div></div>'.repeat(off);
   for(let d=1;d<=n;d++){
     const k=cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(d),js=(by[k]||[]).sort((a,b)=>a.start.localeCompare(b.start));
-    g+=`<div class="day${k===today?' today':''}" data-a="day" data-k="${k}"><b>${d}</b>`+
+    g+=`<div class="day${k===today?' today':''}${cells%7>4?' we':''}" data-a="day" data-k="${k}"><b>${d}</b>`+
       js.map(j=>`<span class="chip" style="background:${TC[j.type]}66">${esc(j.type==='Gas expense'?'Gas '+money(j.price||0):(j.job||short(j)))}</span>`).join('')+
       '</div>';
+    if(++cells%7===0)g+=strip();
   }
+  if(cells%7)g+='<div></div>'.repeat(7-cells%7)+strip();
   return nav()+`<div class="sum">${t.n} работ · ${h2(t.h)} · ${money(t.p)} · ${fm(dayRows(mj).reduce((a,r)=>a+r.mi,0))}</div><div class="grid">${g}</div>`;
 }
 const plural=n=>n+' '+(n%10===1&&n%100!==11?'работа':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'работы':'работ'));
@@ -117,7 +130,7 @@ function viewRep(){
   mj.forEach(j=>(grp[j.type]??=[]).push(j));
   const rows=TYPES.filter(k=>grp[k]).map(k=>({k,s:sum(grp[k])}));
   return nav()+`<div class="tot"><div><span>Работ</span><b>${t.n}</b></div><div><span>Часы</span><b>${h2(t.h)}</b></div><div><span>Оплата</span><b>${money(t.p)}</b></div><div><span>Мили</span><b>${fm(dr.reduce((a,r)=>a+r.mi,0))}</b></div></div>`+
-    (rows.length?`<div class="list">`+rows.map(r=>`<div><span>${tlabel(r.k)}<small>${r.s.c} ×${r.s.h?' · '+h2(r.s.h):''}</small></span><b>${money(r.s.p)}</b></div>`).join('')+'</div>':'<div class="empty">В этом месяце работ нет</div>')+(dr.length?`<label>По дням</label><div class="list">`+dr.map(r=>`<div data-a="day" data-k="${r.k}" style="cursor:pointer"><span>${dayName(r.k)}<small>${r.s.n||!r.s.c?plural(r.s.n):'расходы'}</small></span><span class="r"><b>${money(r.s.p)}</b><small>${fm(r.mi)}</small></span></div>`).join('')+`</div>`:'')+(mj.length?`<button class="btn p" data-a="share" data-k="month" style="margin-top:8px">Поделиться</button>`:'');
+    (rows.length?`<div class="list">`+rows.map(r=>`<div><span>${tlabel(r.k)}<small>${r.s.c} ×${r.s.h?' · '+h2(r.s.h):''}</small></span><b>${money(r.s.p)}</b></div>`).join('')+'</div>':'<div class="empty">В этом месяце работ нет</div>')+(mj.length?`<label>По неделям</label><div class="list">`+weeks().reverse().map(a=>{const w=wSum(a);return `<div><span>${wRange(a)}<small>${w.s.c?wDetail(w.l):'нет записей'}</small></span><b>${money(w.s.p)}</b></div>`}).join('')+'</div>':'')+(dr.length?`<label>По дням</label><div class="list">`+dr.map(r=>`<div data-a="day" data-k="${r.k}" style="cursor:pointer"><span>${dayName(r.k)}<small>${r.s.n||!r.s.c?plural(r.s.n):'расходы'}</small></span><span class="r"><b>${money(r.s.p)}</b><small>${fm(r.mi)}</small></span></div>`).join('')+`</div>`:'')+(mj.length?`<button class="btn p" data-a="share" data-k="month" style="margin-top:8px">Поделиться</button>`:'');
 }
 function viewSet(){
   return `<div class="bar"><h1>Настройки</h1></div><div class="tot"><b>Стоимость за работу, $</b>`+TYPES.map(t=>`<label>${tlabel(t)}</label><input data-t="${t}" type="number" inputmode="decimal" step="0.01" value="${S.prices[t]||''}" placeholder="${t==='Gas expense'?'вводится при записи':'0'}">`).join('')+`<button class="btn p" data-a="saveset" style="margin-top:12px">Сохранить</button></div>
@@ -200,7 +213,7 @@ function milesBlock(k){const m=S.miles[k]||{s:'',e:''};
 function openBackup(){
   open(`<h2><span>Резервная копия</span><button class="btn" data-a="close" style="margin:0">Закрыть</button></h2>
   <div style="color:var(--mute);font-size:13px;margin-bottom:8px">Последняя копия: ${bkDate()}</div>
-  <button class="btn p" data-a="bkshare" style="margin-top:0">Отправить копию файлом</button>
+  <button class="btn p" data-a="bkdl" style="margin-top:0">Сохранить на ПК</button> <button class="btn" data-a="bkshare" style="margin-top:0">Отправить копию файлом</button>
   <label>Восстановить из файла</label><input id="bk_f" type="file">
   <label>Или текст копии (скопировать / вставить)</label><textarea id="bk" rows="5">${esc(JSON.stringify(S))}</textarea>
   <button class="btn" data-a="copy" data-id="bk">Копировать</button><button class="btn" data-a="import">Импортировать</button>`);
@@ -235,6 +248,7 @@ document.addEventListener('click',ev=>{
     if(m.s===''&&m.e==='')delete S.miles[k];else S.miles[k]=m;
     save();render();$('m_t').textContent='Пройдено: '+fm(miles(k));el.textContent='Сохранено ✓';setTimeout(()=>{if(el.isConnected)el.textContent='Сохранить мили'},1500)}
   else if(a==='sendtoday'){const k=ymd(new Date());doShare(k).then(ok=>{if(ok){S.sent=k;save();render()}})}
+  else if(a==='bkdl'){S.lastBackup=new Date().toISOString();save();const u=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'})),l=document.createElement('a');l.href=u;l.download='smeny-backup-'+ymd(new Date())+'.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);render();el.textContent='Сохранено ✓'}
   else if(a==='bkshare'){const prev=S.lastBackup;S.lastBackup=new Date().toISOString();const f=new File([JSON.stringify(S)],'smeny-backup-'+ymd(new Date())+'.json',{type:'text/plain'});
     if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:'Резервная копия'}).then(()=>{save();render()}).catch(()=>{S.lastBackup=prev});
     else{S.lastBackup=prev;el.textContent='Не поддерживается. Скопируй текст ниже'}}
